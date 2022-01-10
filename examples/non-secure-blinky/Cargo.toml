@@ -1,0 +1,21 @@
+[package]
+name = "secure-blinky"
+version = "0.1.0"
+authors = ["Sascha Wise <sascha@m10.io>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cortex-m = "0.7.3"
+cortex-m-rt = "0.7.0"
+rtt-target = {version = "0.2.0", features = ["cortex-m"] }
+nrf5340-app-hal = { features = ["rt"], git = "https://github.com/sphw/nrf-hal.git", branch = "nrf5340-app-hal"  }
+nb = "0.1.2"
+
+[dependencies.nrf5340-app-pac]
+version = "0.10.1"
+
+[dependencies.embedded-hal]
+version = "0.2.3"
+features = ["unproven"]

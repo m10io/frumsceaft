@@ -1,0 +1,11 @@
+[target.thumbv8m.main-none-eabihf]
+linker = "arm-none-eabi-ld"
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+rustflags = [
+  "-C", "link-arg=--nmagic",
+  #"-C", "link-arg=-Tlink.x",
+]
+
+[build]
+target = "thumbv8m.main-none-eabihf"

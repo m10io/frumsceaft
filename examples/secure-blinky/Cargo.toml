@@ -1,0 +1,34 @@
+[package]
+authors = ["Sascha Wise <me@saschawise.com>"]
+edition = "2018"
+readme = "README.md"
+name = "secure-blinky"
+version = "0.1.0"
+
+[dependencies]
+cortex-m = "0.7.3"
+cortex-m-rt = "0.7"
+
+rtt-target = {version = "0.2.0", features = ["cortex-m"] }
+nb = "0.1.2"
+
+nrf5340-app-pac = "0.10.1"
+
+frumsceaft = { path = "../.." }
+
+[dependencies.embedded-hal]
+version = "0.2.3"
+features = ["unproven"]
+
+[build-dependencies]
+gpp = "0.6"
+
+[[bin]]
+name = "secure-blinky"
+test = false
+bench = false
+
+[profile.release]
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size on Flash
+lto = true # better optimizations
