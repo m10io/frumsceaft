@@ -95,17 +95,29 @@ impl IDAU for nrf5340_app_pac::spu_s::RegisterBlock {
     }
 
     fn pass_peripheral_non_secure(&self, perph: &Self::Peripheral) {
-        self.periphid[perph.0 as usize].perm.write(|w| {
+        let id = perph.0 as usize;
+
+        let peripherals = unsafe { cortex_m::Peripherals::steal() };
+        // disable each interupt
+        unsafe { peripherals.NVIC.icer[id / 32].write(1 << (id % 32)) }
+
+        // allow the peripheral to be accessed from non-secure memory
+        self.periphid[id].perm.write(|w| {
             w.secattr().non_secure().lock().locked();
             w
         });
+        // allow the interupt to be registed from non-secure memory
+        unsafe {
+            peripherals.NVIC.itns[id / 32].modify(|w| w | 1 << (id & 0x1F));
+        }
     }
 
     fn prepare_boot(&self) {
         unsafe {
             self.gpioport[0].perm.write_with_zero(|w| w);
+            self.gpioport[1].perm.write_with_zero(|w| w);
 
-            let sau = &*cortex_m::peripheral::SAU::ptr();
+            let sau = &*cortex_m::peripheral::SAU::PTR;
             // disable SAU
             sau.ctrl.modify(|mut ctrl| {
                 ctrl.0 &= !1;
@@ -129,7 +141,7 @@ macro_rules! impl_perph {
     ($s:ty) => {
         impl PerphExt for $s {
             fn perph() -> NSPeripheral {
-                NSPeripheral(get_perph_id(<$s>::ptr()))
+                NSPeripheral(get_perph_id(<$s>::PTR))
             }
         }
     };
