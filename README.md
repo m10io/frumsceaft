@@ -1,6 +1,6 @@
 # Frumsceaft 
 
-Frumsceaft (pronounced from-shaft) is a Rust library for building a bootloader / secure partition in a TrustZone-M enabled environment. The goal is to provide a minimal set of abstractions that make it easy to build a bootloader. At the moment it supports the Nordic nRF5340, but it should be relatively easy to add support for other Cortex-M processors. It provides utilities for setting TrustZone-M memory regions, and passing peripherals. For a more complete description of TrustZone-M read Dimitrios Slamaris's fantastic book  <https://embeddedsecurity.io/>
+Frumsceaft (pronounced from-shaft) is a Rust library for building a bootloader / secure partition in a TrustZone-M enabled environment. The goal is to provide a minimal set of abstractions that make it easy to build a bootloader. At the moment it supports the Nordic nRF5340 and the STM32L5, but it should be relatively easy to add support for other Cortex-M processors. It provides utilities for setting TrustZone-M memory regions, and passing peripherals. For a more complete description of TrustZone-M read Dimitrios Slamaris's fantastic book  <https://embeddedsecurity.io/>
 
 
 ## Usage
@@ -31,7 +31,7 @@ frumsceaft::boot(
 Frumsceaft is an Anglo-Saxon word that means "creation" or "origin". Since Frumsceaft will be one of the first things that run on your device it seems fitting.
 
 ## Coming Soon (TM)
-1. Non-secure image signature verification
-2. KMU and CryptoCell support libraries
-3. Support for the SM32L5
-4. Build helpers and scripts to make linking veneer implibs easier.
+- [x] Support for the SM32L5
+- [x] Build helpers and scripts to make linking veneer implibs easier.
+- [ ] Non-secure image signature verification
+- [ ] KMU and CryptoCell support libraries

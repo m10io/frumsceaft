@@ -1,0 +1,33 @@
+[package]
+authors = ["Sascha Wise <me@saschawise.com>"]
+edition = "2018"
+readme = "README.md"
+name = "stm32l5-ns-example"
+version = "0.1.0"
+
+[dependencies]
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+panic-probe = { version = "0.3", features = ["print-defmt"] }
+defmt-rtt = "0.3.1"
+defmt = "0.3"
+stm32-hal2 = { git = "https://github.com/sphw/stm32-hal.git", branch = "dma-support-l5", features = ["l562", "embedded-hal", "l5rt"] }
+
+embedded-hal = { version = "0.2.5", features = ["unproven"] }
+
+[dependencies.stm32l5]
+git = "https://github.com/m10io/stm32l5-rs-temp.git"
+features = ["stm32l562", "rt"]
+
+[[bin]]
+name = "stm32l5-ns-example"
+test = false
+bench = false
+
+[profile.release]
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size on Flash
+lto = true # better optimizations
+
+[patch.crates-io]
+stm32l5 = { git = "https://github.com/m10io/stm32l5-rs-temp.git" }

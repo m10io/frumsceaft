@@ -1,6 +1,6 @@
 #![no_std]
 #![feature(abi_c_cmse_nonsecure_call)]
-#![doc = include_str!("../README.md")]
+#![doc = include_str!("../../README.md")]
 use cortex_m::cmse::{AccessType, TestTarget};
 
 use core::ops::Range;
@@ -155,3 +155,6 @@ pub fn boot<I: IDAU>(idau: &I, layout: MemoryLayout, peripherals: &[I::Periphera
 
 #[cfg(feature = "nrf53")]
 pub mod nrf53;
+
+#[cfg(feature = "stm32l562")]
+pub mod stm32l562;

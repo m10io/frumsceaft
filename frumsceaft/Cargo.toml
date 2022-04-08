@@ -1,17 +1,20 @@
 [package]
 name = "frumsceaft"
-version = "0.0.2"
+version = "0.0.1"
 edition = "2021"
 
 [features]
-default = ["nrf53"]
+default = ["stm32l562"]
 nrf53 = ["nrf5340-app-pac"]
+stm32l562 = ["stm32l5", "stm32l5/stm32l562"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 cortex-m = "0.7.3"
-nrf5340-app-pac = { version = "0.11", optional = true }
+nrf5340-app-pac = { version = "0.10.1", optional = true }
+stm32l5 = { git = "https://github.com/m10io/stm32l5-rs-temp.git", features = [], optional = true }
+defmt = "0.3"
 
 [patch.crates-io]
 cortex-m = { git = "https://github.com/sphw/cortex-m.git", branch = "feature/add-itns-nvic" }
