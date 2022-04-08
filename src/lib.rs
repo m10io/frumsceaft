@@ -1,6 +1,7 @@
 #![no_std]
 #![feature(abi_c_cmse_nonsecure_call)]
 #![doc = include_str!("../README.md")]
+use cortex_m::cmse::{AccessType, TestTarget};
 
 use core::ops::Range;
 
@@ -45,7 +46,7 @@ pub struct MemoryLayout {
 /// ```no_run
 /// use frumsceaft::nrf53::PerphExt;
 ///
-/// let spu = unsafe { &*nrf5340_app_pac::SPU_S::ptr() };
+/// let spu = unsafe { &*nrf5340_app_pac::SPU_S::PTR };
 /// frumscaeft::boot(
 ///     spu,
 ///     boot_oxide::MemoryLayout {
@@ -119,21 +120,35 @@ pub fn boot<I: IDAU>(idau: &I, layout: MemoryLayout, peripherals: &[I::Periphera
     idau.prepare_boot();
 
     unsafe {
-        // get System Control Block peripheral
-        let scb = &*cortex_m::peripheral::SCB::ptr();
-
-        let mut aircr = scb.aircr.read() & !(0xFFFF << 16);
-        aircr |= 1 << 14; // SCB_AIRCR_PRIS_Msk
-        scb.aircr.write((0x05FA << 16) & (0xFFFF << 16) | aircr);
-        let mut aircr = scb.aircr.read() & !(0xFFFF << 16);
-        aircr |= 1 << 13; // SCB_AIRCR_PRIS_Msk
-        scb.aircr.write((0x05FA << 16) & (0xFFFF << 16) | aircr);
         let ns_vector_table = non_secure_start as *const u32;
+        // get scb (system control block) peripheral
+        let scb = &*cortex_m::peripheral::SCB::PTR;
+
+        // set VTOR_NS
+        core::ptr::write_volatile(0xE002ED08 as *mut u32, non_secure_start);
+
+        // set aircr to a pre-calculated value
+        // this value is equivalent to enabling two settings: priotize secure exceptions
+        // & send non-banked exceptions to non-secure
+        scb.aircr.write(0x5FA56000);
+
+        // ensure that flash region has the appropriate permissions
+        let region_access = TestTarget::check(
+            non_secure_start as *mut u32,
+            AccessType::NonSecureUnprivileged,
+        );
+        if region_access.secure() {
+            panic!()
+        }
+
+        // do some pointer math to get the address of the "reset vector"
         let ns_reset_vector = *((non_secure_start + 4) as *const u32);
+        // set the non-secure MSP
         cortex_m::register::msp::write_ns(*ns_vector_table);
+
+        // cast our reset vector, as a non-secure function call
         let reset_ns: extern "C-cmse-nonsecure-call" fn() -> ! =
             core::mem::transmute(ns_reset_vector);
-
         reset_ns()
     }
 }

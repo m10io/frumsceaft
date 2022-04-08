@@ -1,6 +1,6 @@
 [package]
 name = "frumsceaft"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 
 [features]
@@ -11,4 +11,7 @@ nrf53 = ["nrf5340-app-pac"]
 
 [dependencies]
 cortex-m = "0.7.3"
-nrf5340-app-pac = { version = "0.10.1", optional = true }
+nrf5340-app-pac = { version = "0.11", optional = true }
+
+[patch.crates-io]
+cortex-m = { git = "https://github.com/sphw/cortex-m.git", branch = "feature/add-itns-nvic" }
