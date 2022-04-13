@@ -1,0 +1,26 @@
+[package]
+name = "ecg"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1"
+config = { version = "0.11", default-features = false, features = ["toml"] }
+clap = { version = "3.1.6", features = ["derive"] }
+probe-rs = { git = "https://github.com/probe-rs/probe-rs.git" }
+probe-rs-cli-util = { git = "https://github.com/probe-rs/probe-rs.git", default-features = false, features=["anyhow"] }
+serde = { version = "1", features = ["derive", "rc"] }
+petgraph = { version = "0.6", features = ["graphmap"] }
+probe-run = { git = "https://github.com/sphw/probe-run.git", branch = "add-lib" }
+log = "0.4"
+signal-hook = "0.3"
+defmt-decoder = { version = "=0.3.2", features = ["unstable"] }
+probe-rs-rtt = "0.12"
+colored = "2"
+env_logger = "0.9"
+
+[patch.crates-io]
+probe-rs = { git = "https://github.com/probe-rs/probe-rs.git" }
+probe-rs-cli-util = { git = "https://github.com/probe-rs/probe-rs.git" }

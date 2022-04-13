@@ -1,5 +1,5 @@
 [package]
-name = "secure-blinky"
+name = "non-secure-blinky"
 version = "0.1.0"
 authors = ["Sascha Wise <sascha@m10.io>"]
 edition = "2018"

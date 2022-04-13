@@ -1,0 +1,11 @@
+chip = "nRF5340_xxAA"
+
+[images.secure]
+path = "secure"
+secure = true
+dependencies = []
+
+[images.non-secure]
+path = "non-secure"
+secure = false
+dependencies = ["secure"]

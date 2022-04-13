@@ -4,7 +4,12 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn main() {
-    let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let out = &PathBuf::from(
+        env::var_os("FC_LIB_DIR")
+            .or_else(|| env::var_os("OUT_DIR"))
+            .unwrap(),
+    );
+    eprintln!("{:?}", out);
     let memory_x = gpp::process_str(include_str!("memory.ld"), &mut gpp::Context::new()).unwrap();
     File::create(out.join("memory.x"))
         .unwrap()
