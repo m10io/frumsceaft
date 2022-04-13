@@ -80,6 +80,7 @@ fn main() -> anyhow::Result<()> {
             build_graph.add_edge(a, b, 1);
         }
     }
+    std::fs::create_dir_all(PathBuf::from("./target"))?;
     let target_path = std::fs::canonicalize(PathBuf::from("./target"))?;
     let mut artifacts: HashMap<String, Artifact> = HashMap::new();
     let nodes = Topo::new(&build_graph)
