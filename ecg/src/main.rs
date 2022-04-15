@@ -104,7 +104,7 @@ fn main() -> anyhow::Result<()> {
         println!("{} {}", "Building".green().bold(), node.green().bold());
         let node_path = target_path.join(node);
         std::fs::create_dir_all(node_path.clone())?;
-        let artifact = image.build(node_path, deps)?;
+        let artifact = image.build(node_path, deps, args.release)?;
         artifacts.insert(node.to_string(), artifact);
     }
     let mut sess = args.probe.simple_attach()?;
@@ -215,6 +215,8 @@ struct Args {
     cmd: Cmd,
     #[clap(short, long, default_value = "./target")]
     target_path: PathBuf,
+    #[clap(long)]
+    release: bool,
 }
 
 #[derive(Subcommand, Debug, PartialEq)]
@@ -295,12 +297,16 @@ impl Image {
         &self,
         lib_dir: PathBuf,
         dependencies: impl Iterator<Item = PathBuf>,
+        release: bool,
     ) -> anyhow::Result<Artifact> {
         let mut args = vec![
             "-Zunstable-options".to_string(),
             "--config".to_string(),
             format!("env.FC_LIB_DIR={:?}", lib_dir),
         ];
+        if release {
+            args.push("--release".to_string());
+        }
         for dep in dependencies {
             args.push("--config".to_string());
             args.push(format!(
