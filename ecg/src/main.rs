@@ -245,6 +245,8 @@ impl Chip {
                 .arg("-c port=SWD")
                 .arg("-ob")
                 .arg("TZEN=1")
+                .arg("SECWM2_PSTRT=1")
+                .arg("SECWM2_PEND=0")
                 .output()?;
         }
         Ok(())
