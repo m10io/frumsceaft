@@ -12,7 +12,7 @@ use petgraph::{
     graph::DiGraph,
     visit::{Topo, Walker},
 };
-use probe_rs::{config::MemoryRegion, Core, MemoryInterface as _, Session};
+use probe_rs::{config::MemoryRegion, Core, DebugProbeSelector, MemoryInterface as _, Session};
 use probe_rs_cli_util::common_options::{CargoOptions, FlashOptions, ProbeOptions};
 use probe_rs_cli_util::Artifact;
 use probe_rs_rtt::{Rtt, ScanRegion, UpChannel};
@@ -53,16 +53,16 @@ fn main() -> anyhow::Result<()> {
     }
     let image_found = match &args.cmd {
         Cmd::Run { image } | Cmd::Debug { image } => config.images.get(image.as_str()).is_some(),
-        Cmd::Flash => true,
+        Cmd::Flash | Cmd::Clippy => true,
     };
     if !image_found {
         bail!("image not found")
     }
     let is_secure = config.images.iter().any(|(_, i)| i.secure);
     args.probe.chip = Some(config.chip.chip_name().to_string());
-    if is_secure {
-        config.chip.enable_trustzone()?;
-        config.chip.wipe_chip()?;
+    if is_secure && !matches!(args.cmd, Cmd::Clippy) {
+        config.chip.enable_trustzone(&args.probe.probe_selector)?;
+        config.chip.wipe_chip(&args.probe.probe_selector)?;
     }
     defmt_decoder::log::init_logger(false, false, move |metadata| {
         if defmt_decoder::log::is_defmt_frame(metadata) {
@@ -72,6 +72,7 @@ fn main() -> anyhow::Result<()> {
         }
     });
 
+    // create build graph
     let mut build_graph: DiGraph<_, _, u32> = DiGraph::default();
     for (name, image) in config.images.iter() {
         let a = build_graph.add_node(name.clone());
@@ -83,6 +84,8 @@ fn main() -> anyhow::Result<()> {
     std::fs::create_dir_all(PathBuf::from("./target"))?;
     let target_path = std::fs::canonicalize(PathBuf::from("./target"))?;
     let mut artifacts: HashMap<String, Artifact> = HashMap::new();
+
+    // create topographic sort of build graph
     let nodes = Topo::new(&build_graph)
         .iter(&build_graph)
         .map(|node| {
@@ -91,6 +94,9 @@ fn main() -> anyhow::Result<()> {
                 .ok_or_else(|| anyhow!("missing node weight"))
         })
         .collect::<Result<BTreeSet<_>, anyhow::Error>>()?;
+
+    // build images
+
     for node in nodes.iter().rev() {
         let image = config
             .images
@@ -102,11 +108,24 @@ fn main() -> anyhow::Result<()> {
             .filter(|d| artifacts.get(d.as_str()).is_some())
             .map(|a| target_path.join(a));
         println!("{} {}", "Building".green().bold(), node.green().bold());
+
         let node_path = target_path.join(node);
         std::fs::create_dir_all(node_path.clone())?;
-        let artifact = image.build(node_path, deps, args.release)?;
-        artifacts.insert(node.to_string(), artifact);
+
+        if let Cmd::Clippy = &args.cmd {
+            image.clippy(node_path, deps)?;
+        } else {
+            let artifact = image.build(node_path, deps, args.release)?;
+            artifacts.insert(node.to_string(), artifact);
+        }
     }
+
+    // since clippy was run, exit without flashing
+    if let Cmd::Clippy = &args.cmd {
+        return Ok(());
+    }
+
+    //flash images
     let mut sess = args.probe.simple_attach()?;
     let flash_opts = FlashOptions {
         disable_double_buffering: false,
@@ -138,6 +157,7 @@ fn main() -> anyhow::Result<()> {
         )?;
     }
 
+    // run or debug selected image
     for name in nodes.iter().rev() {
         match args.cmd {
             Cmd::Run { image: ref n } if name.as_str() == n => {
@@ -223,6 +243,7 @@ struct Args {
 enum Cmd {
     Run { image: String },
     Debug { image: String },
+    Clippy,
     Flash,
 }
 
@@ -239,10 +260,10 @@ enum Chip {
 }
 
 impl Chip {
-    fn enable_trustzone(&self) -> anyhow::Result<()> {
+    fn enable_trustzone(&self, probe: &Option<DebugProbeSelector>) -> anyhow::Result<()> {
         if let Chip::STM32L562QEIxQ = self {
             Command::new("STM32_Programmer_CLI")
-                .arg("-c port=SWD")
+                .arg(stm32_probe_connect(probe))
                 .arg("-ob")
                 .arg("TZEN=1")
                 .arg("SECWM2_PSTRT=1")
@@ -252,15 +273,16 @@ impl Chip {
         Ok(())
     }
 
-    fn wipe_chip(&self) -> anyhow::Result<()> {
+    fn wipe_chip(&self, probe: &Option<DebugProbeSelector>) -> anyhow::Result<()> {
         if let Chip::STM32L562QEIxQ = self {
             let output = Command::new("STM32_Programmer_CLI")
-                .arg("-c port=SWD")
+                .arg(stm32_probe_connect(probe))
                 .arg("-e")
                 .arg("all")
                 .output()?;
             if !output.status.success() {
                 let error = String::from_utf8(output.stderr)?;
+                println!("{:?}", String::from_utf8(output.stdout)?);
                 return Err(anyhow!("wipe error: {}", error));
             }
             println!("{}", "Wiped Successfully".bold().green());
@@ -273,6 +295,21 @@ impl Chip {
             Chip::STM32L562QEIxQ => "STM32L562QEIxQ",
             Chip::NRF5340 => "nRF5340_xxAA",
         }
+    }
+}
+
+fn stm32_probe_connect(probe: &Option<DebugProbeSelector>) -> String {
+    if let Some(probe) = probe {
+        let mut arg = format!(
+            "-c port=SWD PID={:x} VID={:x}",
+            probe.product_id, probe.vendor_id
+        );
+        if let Some(serial) = &probe.serial_number {
+            arg = format!("{} sn={}", arg, serial)
+        }
+        arg
+    } else {
+        "-c port=SWD".to_string()
     }
 }
 
@@ -289,6 +326,7 @@ impl std::str::FromStr for Chip {
 
 #[derive(Debug, Deserialize)]
 pub struct Image {
+    release: bool,
     secure: bool,
     path: PathBuf,
     dependencies: Vec<String>,
@@ -301,12 +339,13 @@ impl Image {
         dependencies: impl Iterator<Item = PathBuf>,
         release: bool,
     ) -> anyhow::Result<Artifact> {
+        println!("{:?}", lib_dir);
         let mut args = vec![
             "-Zunstable-options".to_string(),
             "--config".to_string(),
             format!("env.FC_LIB_DIR={:?}", lib_dir),
         ];
-        if release {
+        if self.release {
             args.push("--release".to_string());
         }
         for dep in dependencies {
@@ -318,6 +357,40 @@ impl Image {
         }
         let artifact = probe_rs_cli_util::build_artifact(&self.path, &args)?;
         Ok(artifact)
+    }
+
+    fn clippy(
+        &self,
+        lib_dir: PathBuf,
+        dependencies: impl Iterator<Item = PathBuf>,
+    ) -> anyhow::Result<()> {
+        let mut args = vec![
+            "-Zunstable-options".to_string(),
+            "--config".to_string(),
+            format!("env.FC_LIB_DIR={:?}", lib_dir),
+        ];
+        for dep in dependencies {
+            args.push("--config".to_string());
+            args.push(format!(
+                "target.thumbv8m.main-none-eabihf.rustflags=[\"-L{}\"]",
+                dep.to_str().unwrap()
+            ));
+        }
+        args.extend_from_slice(&["--".to_string(), "-D".to_string(), "warnings".to_string()]);
+        let cargo_executable = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
+
+        let status = Command::new(cargo_executable)
+            .current_dir(&self.path)
+            .arg("clippy")
+            .args(args)
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .status()?;
+        if !status.success() {
+            return Err(anyhow!("clippy returned errors"));
+        }
+
+        Ok(())
     }
 }
 
